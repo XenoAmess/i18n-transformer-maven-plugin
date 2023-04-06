@@ -10,18 +10,8 @@
 
     <packaging>maven-plugin</packaging>
 
-    <properties>
-        <java.version>11</java.version>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
-        <mavenVersion>3.2.5</mavenVersion>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <prerequisites>
-        <maven>${mavenVersion}</maven>
-    </prerequisites>
-
+    <name>${project.artifactId}</name>
+    <description>i8n-transformer-maven-plugin.</description>
     <url>https://github.com/XenoAmess/i18n-transformer-maven-plugin</url>
     <developers>
         <developer>
@@ -43,6 +33,18 @@
             <url>${project.url}/blob/master/LICENSE</url>
         </license>
     </licenses>
+
+    <properties>
+        <java.version>11</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <mavenVersion>3.2.5</mavenVersion>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <prerequisites>
+        <maven>${mavenVersion}</maven>
+    </prerequisites>
 
     <profiles>
         <profile>
