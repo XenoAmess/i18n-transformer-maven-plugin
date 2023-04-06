@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.util.Arrays;
 
+@AAA("我是注解")
 @AllArgsConstructor
 enum EnumA {
     A("值aaa"),
