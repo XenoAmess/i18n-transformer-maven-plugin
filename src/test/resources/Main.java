@@ -16,6 +16,20 @@ enum EnumA {
     private final String value;
 }
 
+interface IA {
+
+    final String value = "接口中文";
+
+}
+
+interface IB {
+
+    interface IC {
+        final String value = "接口中文2";
+    }
+
+}
+
 public class Main {
 
     private static final String STATIC_STRING_NAME = "名称";

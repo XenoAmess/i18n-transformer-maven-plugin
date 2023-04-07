@@ -140,19 +140,19 @@ public class I18nTransformMojo extends AbstractMojo {
                     continue;
                 }
                 String handledFileContent = null;
+                I18nTransformerContext i18nTransformerContext = new I18nTransformerContext(
+                        i18nTemplate,
+                        propertyBundleName,
+                        f.getPath(),
+                        f.getAbsolutePath(),
+                        0,
+                        new ArrayList<>()
+                );
                 try (
                         InputStream inputStream = new FileInputStream(f);
                         BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream)
                 ) {
                     CompilationUnit compilationUnit = StaticJavaParser.parse(bufferedInputStream, Charset.forName(encoding));
-                    I18nTransformerContext i18nTransformerContext = new I18nTransformerContext(
-                            i18nTemplate,
-                            propertyBundleName,
-                            f.getPath(),
-                            f.getAbsolutePath(),
-                            0,
-                            new ArrayList<>()
-                    );
                     dfs(
                             compilationUnit,
                             i18nTransformerContext
@@ -160,7 +160,7 @@ public class I18nTransformMojo extends AbstractMojo {
                     propertiesEntityList.addAll(i18nTransformerContext.getChinesePropertiesEntities());
                     handledFileContent = compilationUnit.toString();
                 }
-                if (handledFileContent != null) {
+                if (handledFileContent != null && !i18nTransformerContext.getChinesePropertiesEntities().isEmpty()) {
                     try (
                             OutputStream outputStream = new FileOutputStream(f);
                             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream)
@@ -171,29 +171,31 @@ public class I18nTransformMojo extends AbstractMojo {
                     }
                 }
             }
-            StringBuilder stringBuilder = new StringBuilder();
-            for (PropertiesEntity propertiesEntity : propertiesEntityList) {
-                stringBuilder.append(propertiesEntity.getPropertyName());
-                stringBuilder.append("=");
-                stringBuilder.append(propertiesEntity.getChineseValue());
-                stringBuilder.append('\n');
+            if (!propertiesEntityList.isEmpty()) {
+                StringBuilder stringBuilder = new StringBuilder();
+                for (PropertiesEntity propertiesEntity : propertiesEntityList) {
+                    stringBuilder.append(propertiesEntity.getPropertyName());
+                    stringBuilder.append("=");
+                    stringBuilder.append(propertiesEntity.getChineseValue());
+                    stringBuilder.append('\n');
+                }
+                org.apache.commons.io.FileUtils.write(
+                        new File(
+                                project.getBasedir(),
+                                "src/main/resources/" + propertyBundleName + ".properties"
+                        ),
+                        stringBuilder.toString(),
+                        StandardCharsets.UTF_8
+                );
+                org.apache.commons.io.FileUtils.write(
+                        new File(
+                                project.getBasedir(),
+                                "src/main/resources/" + propertyBundleName + "_zh_CN.properties"
+                        ),
+                        stringBuilder.toString(),
+                        StandardCharsets.UTF_8
+                );
             }
-            org.apache.commons.io.FileUtils.write(
-                    new File(
-                            project.getBasedir(),
-                            "src/main/resources/" + propertyBundleName + ".properties"
-                    ),
-                    stringBuilder.toString(),
-                    StandardCharsets.UTF_8
-            );
-            org.apache.commons.io.FileUtils.write(
-                    new File(
-                            project.getBasedir(),
-                            "src/main/resources/" + propertyBundleName + "_zh_CN.properties"
-                    ),
-                    stringBuilder.toString(),
-                    StandardCharsets.UTF_8
-            );
         } catch (IOException e) {
             throw new MojoExecutionException("IOException: " + e.getMessage(), e);
         }

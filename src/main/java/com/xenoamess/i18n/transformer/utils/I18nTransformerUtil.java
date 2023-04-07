@@ -2,12 +2,14 @@ package com.xenoamess.i18n.transformer.utils;
 
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.AnnotationMemberDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithArguments;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.xenoamess.i18n.transformer.contexts.I18nTransformerContext;
 import com.xenoamess.i18n.transformer.entities.PropertiesEntity;
 import org.apache.commons.lang3.StringUtils;
@@ -68,12 +70,25 @@ public class I18nTransformerUtil {
 
         String propertyName = prefixKey + "." + currentIndex;
 
-        i18nTransformerContext.getChinesePropertiesEntities().add(
-                new PropertiesEntity(
-                        propertyName,
-                        chineseValue
-                )
-        );
+        {
+            // remove duplication logic
+            boolean ifAlreadyIn = false;
+            for (PropertiesEntity propertiesEntity : i18nTransformerContext.getChinesePropertiesEntities()) {
+                if (StringUtils.equals(propertiesEntity.getChineseValue(), chineseValue)) {
+                    propertyName = propertiesEntity.getPropertyName();
+                    ifAlreadyIn = true;
+                    break;
+                }
+            }
+            if (!ifAlreadyIn) {
+                i18nTransformerContext.getChinesePropertiesEntities().add(
+                        new PropertiesEntity(
+                                propertyName,
+                                chineseValue
+                        )
+                );
+            }
+        }
 
         String result = i18nTransformerContext.getI18nTemplate();
         result = StringUtils.replace(
@@ -85,6 +100,30 @@ public class I18nTransformerUtil {
                 result,
                 "${propertyBundleName}",
                 i18nTransformerContext.getPropertyBundleName()
+        );
+        String identifier = i18nTransformerContext.getIdentifier();
+        String[] identifiers = identifier.split("[\\\\/.]+");
+        boolean haveJava = false;
+        String className = null;
+        for (int i = identifiers.length - 1; i >= 0; i--) {
+            if (!haveJava) {
+                if ("java".equalsIgnoreCase(identifiers[i])) {
+                    haveJava = true;
+                }
+            } else {
+                if (StringUtils.isNotBlank(identifiers[i])) {
+                    className = identifiers[i];
+                    break;
+                }
+            }
+        }
+        if (className == null) {
+            className = "Object";
+        }
+        result = StringUtils.replace(
+                result,
+                "${classSimpleName}",
+                className
         );
         return result;
     }
@@ -111,15 +150,30 @@ public class I18nTransformerUtil {
                 if (parentParentOptional.isPresent()) {
                     Node parentParentNode = parentParentOptional.get();
                     if (parentParentNode instanceof FieldDeclaration) {
-                        if (((FieldDeclaration) parentParentNode).isStatic()) {
-                            System.err.println("warn: cannot change static field: " + parentParentNode + " at file : " + i18nTransformerContext.getIdentifier());
-                        } else {
-                            Optional<Expression> initializer = variableDeclarator.getInitializer();
+                        Optional<Expression> initializer = variableDeclarator.getInitializer();
+                        String handleResultString = handleString(
+                                node.getValue(),
+                                i18nTransformerContext
+                        );
+                        boolean canModify = !((FieldDeclaration) parentParentNode).isStatic();
+                        Optional<Node> parentParentParentOptional = parentParentNode.getParentNode();
+                        if (parentParentParentOptional.isPresent() && parentParentParentOptional.get() instanceof ClassOrInterfaceDeclaration && ((ClassOrInterfaceDeclaration) parentParentParentOptional.get()).isInterface()) {
+                            canModify = false;
+                        }
+                        if (!canModify) {
+                            System.err.println("warn: change static field but still need manually handle: " + parentParentNode + " at file : " + i18nTransformerContext.getIdentifier());
+                            variableDeclarator.setType(
+                                    "java.util.function.Supplier<String>"
+                            );
+                            variableDeclarator.setName(
+                                    variableDeclarator.getName() + "_SUPPLIER"
+                            );
                             variableDeclarator.setInitializer(
-                                    handleString(
-                                            node.getValue(),
-                                            i18nTransformerContext
-                                    )
+                                    "() -> (" + handleResultString + ")"
+                            );
+                        } else {
+                            variableDeclarator.setInitializer(
+                                    handleResultString
                             );
                         }
                     } else if (parentParentNode instanceof VariableDeclarationExpr) {
@@ -135,7 +189,7 @@ public class I18nTransformerUtil {
             }
             return;
         } else if (parentNode instanceof EnumConstantDeclaration) {
-            System.err.println("warn: EnumConstantDeclaration need manual change : " + node + " at file : " + i18nTransformerContext.getIdentifier());
+            System.err.println("warn: EnumConstantDeclaration need manual change : " + parentNode + " at file : " + i18nTransformerContext.getIdentifier());
         } else if (parentNode instanceof NodeWithArguments) {
             NodeList<Expression> arguments = ((NodeWithArguments<?>) parentNode).getArguments();
             List<Pair<Integer, String>> modifyList = new ArrayList<>(arguments.size());
@@ -200,8 +254,41 @@ public class I18nTransformerUtil {
             ((ArrayInitializerExpr) parentNode).setValues(
                     arguments
             );
+        } else if (parentNode instanceof BinaryExpr) {
+            {
+                Expression left = ((BinaryExpr) parentNode).getLeft();
+                if (left instanceof StringLiteralExpr) {
+                    if (PATTERN_CHINESE.matcher(((StringLiteralExpr) left).getValue()).matches()) {
+                        ((BinaryExpr) parentNode).setLeft(
+                                new NameExpr(
+                                        handleString(
+                                                ((StringLiteralExpr) left).getValue(),
+                                                i18nTransformerContext
+                                        )
+                                )
+                        );
+                    }
+                }
+            }
+            {
+                Expression right = ((BinaryExpr) parentNode).getRight();
+                if (right instanceof StringLiteralExpr) {
+                    if (PATTERN_CHINESE.matcher(((StringLiteralExpr) right).getValue()).matches()) {
+                        ((BinaryExpr) parentNode).setRight(
+                                new NameExpr(
+                                        handleString(
+                                                ((StringLiteralExpr) right).getValue(),
+                                                i18nTransformerContext
+                                        )
+                                )
+                        );
+                    }
+                }
+            }
+        } else if (parentNode instanceof SingleMemberAnnotationExpr || parentNode instanceof MemberValuePair || parentNode instanceof AnnotationMemberDeclaration) {
+            System.err.println("unhandled annotation : " + parentNode.getClass().getName() + " for node " + parentNode + " at file : " + i18nTransformerContext.getIdentifier());
         } else {
-            System.err.println("unhandled class : " + parentNode.getClass().getName() + " at file : " + i18nTransformerContext.getIdentifier());
+            System.err.println("unhandled class : " + parentNode.getClass().getName() + " for node " + parentNode + " at file : " + i18nTransformerContext.getIdentifier());
         }
 
     }

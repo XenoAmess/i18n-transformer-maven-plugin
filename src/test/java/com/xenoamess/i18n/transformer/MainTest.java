@@ -29,7 +29,7 @@ public class MainTest {
         I18nTransformerContext i18nTransformerContext = new I18nTransformerContext(
                 "toI18n(\"${value}\")",
                 "x18nt",
-                null,
+                "Main.java",
                 null,
                 0,
                 new ArrayList<>()

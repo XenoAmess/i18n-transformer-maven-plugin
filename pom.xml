@@ -6,7 +6,7 @@
 
     <groupId>com.xenoamess</groupId>
     <artifactId>i8n-transformer-maven-plugin</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
 
     <packaging>maven-plugin</packaging>
 
@@ -74,6 +74,17 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>1.6.13</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
@@ -220,6 +231,11 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <version>23.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-utils</artifactId>
+            <version>3.5.1</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

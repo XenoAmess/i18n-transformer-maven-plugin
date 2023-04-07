@@ -19,7 +19,7 @@ public class I18nTransformerContext {
     @NotNull
     private String propertyBundleName;
 
-    @Nullable
+    @NotNull
     private String identifier;
 
     @Nullable
